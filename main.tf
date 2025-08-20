@@ -54,3 +54,7 @@ resource "aws_iam_role" "ch_aa_beanstalk_app_ec2_role" {
     ]
   })
 }
+  tags = {
+    Environment = "test"
+  }
+>>>>>>> 3efafd4 (Add GitHub Actions CI/CD and test change to Terraform)

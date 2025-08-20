@@ -78,3 +78,16 @@ resource "aws_iam_role_policy_attachment" "ch_aa_ec2_workertier_policy" {
   role       = aws_iam_role.ch_aa_beanstalk_app_ec2_role.name
   policy_arn = "arn:aws:iam::aws:policy/AWSElasticBeanstalkWorkerTier"
 }
+
+resource "aws_db_instance" "ch_aa_rds_app" {
+  allocated_storage   = 10
+  engine              = "postgres"
+  engine_version      = "17.4"
+  instance_class      = "db.t3.micro"
+  identifier          = "ch-aa-task-listing-app-prod" # name is unique for all DB instances owned by your AWS account in current region
+  db_name             = "CHAATaskListingAppPSQLDB"
+  username            = "CHAAroot"
+  password            = "CHAApassword"
+  skip_final_snapshot = true
+  publicly_accessible = true
+}

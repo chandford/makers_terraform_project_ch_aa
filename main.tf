@@ -11,6 +11,10 @@ resource "aws_ecr_repository" "ch_aa_ecr_repo" {
   }
 }
 
+resource "aws_s3_bucket" "ch_aa_docker_storage_bucket" {
+  bucket = "ch-aa-docker-storage-bucket"
+}
+
 resource "aws_elastic_beanstalk_application" "ch_aa_beanstalk_app" {
   name        = "ch-aa-task-listing-app"
   description = "Task listing app"

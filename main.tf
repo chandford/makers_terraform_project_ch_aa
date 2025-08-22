@@ -20,30 +20,52 @@ resource "aws_elastic_beanstalk_environment" "ch_aa_beanstalk_app_environment" {
   name        = "ch-aa-task-listing-app-environment"
   application = aws_elastic_beanstalk_application.ch_aa_beanstalk_app.name
 
-  solution_stack_name = "64bit Amazon Linux 2023 v4.0.1 running Docker" # "Platform" on console
+  solution_stack_name = "64bit Amazon Linux 2023 v4.0.1 running Docker"
 
-  # Configure the EC2 instances for your environment
   setting {
     namespace = "aws:autoscaling:launchconfiguration"
-    name      = "IamInstanceProfile" # Enables AWS IAM users and AWS services to access temporary security credentials
+    name      = "IamInstanceProfile"
     value     = aws_iam_instance_profile.ch_aa_beanstalk_app_ec2_instance_profile.name
   }
 
   setting {
     namespace = "aws:autoscaling:launchconfiguration"
-    name      = "EC2KeyName" # You can use a key pair to securely log into your EC2 instance.
+    name      = "EC2KeyName"
     value     = "CHTerraform"
+  }
+  
+  setting {
+    namespace = "aws:elasticbeanstalk:application:environment"
+    name      = "DB_HOST"
+    value     = aws_db_instance.ch_aa_rds_app.address
+  }
+
+  setting {
+    namespace = "aws:elasticbeanstalk:application:environment"
+    name      = "DB_NAME"
+    value     = aws_db_instance.ch_aa_rds_app.db_name
+  }
+
+  setting {
+    namespace = "aws:elasticbeanstalk:application:environment"
+    name      = "DB_USER"
+    value     = aws_db_instance.ch_aa_rds_app.username
+  }
+
+  setting {
+    namespace = "aws:elasticbeanstalk:application:environment"
+    name      = "DB_PASSWORD"
+    value     = aws_db_instance.ch_aa_rds_app.password
   }
 }
 
 resource "aws_iam_instance_profile" "ch_aa_beanstalk_app_ec2_instance_profile" {
-  name = "ch-aa-ec2-task-listing-app-ec2-instance-profile" # name must be unique
+  name = "ch-aa-ec2-task-listing-app-ec2-instance-profile"
   role = aws_iam_role.ch_aa_beanstalk_app_ec2_role.name
 }
 
 resource "aws_iam_role" "ch_aa_beanstalk_app_ec2_role" {
   name = "ch-aa-task-listing-app-ec2-instance-role"
-  # Allows the EC2 instances in our Elastic Beanstalk environment to assume take on this role
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
@@ -84,7 +106,7 @@ resource "aws_db_instance" "ch_aa_rds_app" {
   engine              = "postgres"
   engine_version      = "17.4"
   instance_class      = "db.t3.micro"
-  identifier          = "ch-aa-task-listing-app-prod" # name is unique for all DB instances owned by your AWS account in current region
+  identifier          = "ch-aa-task-listing-app-prod"
   db_name             = "CHAATaskListingAppPSQLDB"
   username            = "CHAAroot"
   password            = "CHAApassword"

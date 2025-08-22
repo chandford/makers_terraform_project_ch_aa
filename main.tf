@@ -1,8 +1,14 @@
 resource "aws_ecr_repository" "ch_aa_ecr_repo" {
   name                 = "ch_aa_ecr_repo"
   image_tag_mutability = "MUTABLE"
-  image_scanning_configuration { scan_on_push = true }
-  tags = { Environment = "test" }
+
+  image_scanning_configuration {
+    scan_on_push = true
+  }
+
+  tags = {
+    Environment = "test"
+  }
 }
 
 resource "aws_s3_bucket" "ch_aa_docker_storage_bucket" {
@@ -13,82 +19,10 @@ resource "aws_elastic_beanstalk_application" "ch_aa_beanstalk_app" {
   name = "ch-aa-task-listing-app"
 }
 
-resource "aws_iam_role" "ch_aa_beanstalk_app_ec2_role" {
-  name = "ch-aa-task-listing-app-ec2-instance-role"
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17",
-    Statement = [{
-      Action    = "sts:AssumeRole",
-      Principal = { Service = "ec2.amazonaws.com" },
-      Effect    = "Allow",
-      Sid       = ""
-    }]
-  })
-}
-
-resource "aws_iam_instance_profile" "ch_aa_beanstalk_app_ec2_instance_profile" {
-  name = "ch-aa-ec2-task-listing-app-ec2-instance-profile"
-  role = aws_iam_role.ch_aa_beanstalk_app_ec2_role.name
-}
-
-resource "aws_iam_role_policy_attachment" "ch_aa_ec2_ecr_readonly" {
-  role       = aws_iam_role.ch_aa_beanstalk_app_ec2_role.name
-  policy_arn = "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly"
-}
-
-resource "aws_iam_role_policy_attachment" "ch_aa_ec2_webtier_policy" {
-  role       = aws_iam_role.ch_aa_beanstalk_app_ec2_role.name
-  policy_arn = "arn:aws:iam::aws:policy/AWSElasticBeanstalkWebTier"
-}
-
-resource "aws_iam_role_policy_attachment" "ch_aa_ec2_multicontainer_policy" {
-  role       = aws_iam_role.ch_aa_beanstalk_app_ec2_role.name
-  policy_arn = "arn:aws:iam::aws:policy/AWSElasticBeanstalkMulticontainerDocker"
-}
-
-resource "aws_iam_role_policy_attachment" "ch_aa_ec2_workertier_policy" {
-  role       = aws_iam_role.ch_aa_beanstalk_app_ec2_role.name
-  policy_arn = "arn:aws:iam::aws:policy/AWSElasticBeanstalkWorkerTier"
-}
-
-data "aws_vpc" "default" {
-  default = true
-}
-
-resource "aws_security_group" "rds_open" {
-  name   = "ch-aa-rds-open-5432"
-  vpc_id = data.aws_vpc.default.id
-  ingress {
-    from_port   = 5432
-    to_port     = 5432
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-  egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-}
-
-resource "aws_db_instance" "ch_aa_rds_app" {
-  allocated_storage      = 10
-  engine                 = "postgres"
-  engine_version         = "17.4"
-  instance_class         = "db.t3.micro"
-  identifier             = "ch-aa-task-listing-app-prod"
-  db_name                = "CHAATaskListingAppPSQLDB"
-  username               = "CHAAroot"
-  password               = "CHAApassword"
-  skip_final_snapshot    = true
-  publicly_accessible    = true
-  vpc_security_group_ids = [aws_security_group.rds_open.id]
-}
-
 resource "aws_elastic_beanstalk_environment" "ch_aa_beanstalk_app_environment" {
-  name                = "ch-aa-task-listing-app-environment"
-  application         = aws_elastic_beanstalk_application.ch_aa_beanstalk_app.name
+  name        = "ch-aa-task-listing-app-environment"
+  application = aws_elastic_beanstalk_application.ch_aa_beanstalk_app.name
+
   solution_stack_name = "64bit Amazon Linux 2023 v4.0.1 running Docker"
 
   setting {
@@ -129,15 +63,59 @@ resource "aws_elastic_beanstalk_environment" "ch_aa_beanstalk_app_environment" {
 
   setting {
     namespace = "aws:elasticbeanstalk:application:environment"
-    name      = "DB_PORT"
-    value     = "5432"
+    name      = "DATABASE_URL"
+    value     = "postgresql://CHAAroot:CHAApassword@ch-aa-task-listing-app-prod.cvruukypsgyb.eu-west-2.rds.amazonaws.com:5432/CHAATaskListingAppPSQLDB?sslmode=require"
   }
 }
 
-output "rds_endpoint" {
-  value = aws_db_instance.ch_aa_rds_app.address
+resource "aws_iam_instance_profile" "ch_aa_beanstalk_app_ec2_instance_profile" {
+  role = aws_iam_role.ch_aa_beanstalk_app_ec2_role.name
 }
 
-output "eb_url" {
-  value = aws_elastic_beanstalk_environment.ch_aa_beanstalk_app_environment.endpoint_url
+resource "aws_iam_role" "ch_aa_beanstalk_app_ec2_role" {
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = "sts:AssumeRole"
+        Principal = {
+          Service = "ec2.amazonaws.com"
+        }
+        Effect = "Allow"
+        Sid    = ""
+      }
+    ]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "ch_aa_ec2_ecr_readonly" {
+  role       = aws_iam_role.ch_aa_beanstalk_app_ec2_role.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly"
+}
+
+resource "aws_iam_role_policy_attachment" "ch_aa_ec2_webtier_policy" {
+  role       = aws_iam_role.ch_aa_beanstalk_app_ec2_role.name
+  policy_arn = "arn:aws:iam::aws:policy/AWSElasticBeanstalkWebTier"
+}
+
+resource "aws_iam_role_policy_attachment" "ch_aa_ec2_multicontainer_policy" {
+  role       = aws_iam_role.ch_aa_beanstalk_app_ec2_role.name
+  policy_arn = "arn:aws:iam::aws:policy/AWSElasticBeanstalkMulticontainerDocker"
+}
+
+resource "aws_iam_role_policy_attachment" "ch_aa_ec2_workertier_policy" {
+  role       = aws_iam_role.ch_aa_beanstalk_app_ec2_role.name
+  policy_arn = "arn:aws:iam::aws:policy/AWSElasticBeanstalkWorkerTier"
+}
+
+resource "aws_db_instance" "ch_aa_rds_app" {
+  allocated_storage   = 10
+  engine              = "postgres"
+  engine_version      = "17.4"
+  instance_class      = "db.t3.micro"
+  db_name             = "CHAATaskListingAppPSQLDB"
+  username            = "CHAAroot"
+  password            = "CHAApassword"
+  skip_final_snapshot = true
+  publicly_accessible = true
 }
